@@ -41,6 +41,9 @@ class RawConnection
 end
 
 class ConnectionTest < Test::Unit::TestCase
+  def teardown
+    DataFabric.clear_connection_pool!
+  end
 
   def test_should_install_into_arbase
     assert PrefixModel.methods.include?('connection_topology')
@@ -89,6 +92,20 @@ class ConnectionTest < Test::Unit::TestCase
       # Should use the master
       TheWholeEnchilada.transaction do
         mmmm.save!
+      end
+    end
+  end
+  
+  def test_activating_a_shard_will_only_reconnect_to_database_if_necessary
+    setup_configuration_for TheWholeEnchilada, 'fiveruns_city_dallas_test_slave'
+    setup_configuration_for TheWholeEnchilada, 'fiveruns_city_dallas_test_master'
+    DataFabric.activate_shard :city => :dallas do
+      old_connection = TheWholeEnchilada.connection.raw_connection
+      DataFabric.activate_shard :city => :austin do
+        DataFabric.activate_shard :city => :dallas do
+          new_connection = TheWholeEnchilada.connection.raw_connection
+          assert_equal old_connection, new_connection
+        end
       end
     end
   end

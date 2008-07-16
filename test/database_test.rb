@@ -12,6 +12,10 @@ class DatabaseTest < Test::Unit::TestCase
     filename = File.join(File.dirname(__FILE__), "database.yml")
     ActiveRecord::Base.configurations = YAML::load(ERB.new(IO.read(filename)).result)
   end
+  
+  def teardown
+    DataFabric.clear_connection_pool!
+  end
 
   def test_live_burrito
     DataFabric.activate_shard :city => :dallas do

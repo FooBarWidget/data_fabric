@@ -46,6 +46,10 @@ module DataFabric
     ActiveRecord::Base.send(:include, self)
   end
   
+  def self.clear_connection_pool!
+    (Thread.current[:data_fabric_connections] ||= {}).clear
+  end
+  
   def self.activate_shard(shards, &block)
     ensure_setup
 
@@ -182,21 +186,28 @@ module DataFabric
       conn_name = connection_name
       unless already_connected_to? conn_name 
         @cached_connection = begin 
-          config = ActiveRecord::Base.configurations[conn_name]
-          raise ArgumentError, "Unknown database config: #{conn_name}, have #{ActiveRecord::Base.configurations.inspect}" unless config
-          @model_class.establish_connection config
+          connection_pool = (Thread.current[:data_fabric_connections] ||= {})
+          conn = connection_pool[conn_name]
           if logger.debug?
             logger.debug "Switching from #{@current_connection_name} to #{conn_name}"
           end
           @current_connection_name = conn_name
-          conn = @model_class.connection
-          conn.verify! 0
+          if !conn
+            config = ActiveRecord::Base.configurations[conn_name]
+            raise ArgumentError, "Unknown database config: #{conn_name}, have #{ActiveRecord::Base.configurations.inspect}" unless config
+            @model_class.establish_connection config
+            conn = @model_class.connection
+            conn.verify! 0
+            connection_pool[conn_name] = conn
+          end
           conn
         end
         @model_class.active_connections[@model_class.name] = self
       end
       @cached_connection
     end
+    
+    public :raw_connection
     
     def already_connected_to?(conn_name)
       conn_name == @current_connection_name and @cached_connection

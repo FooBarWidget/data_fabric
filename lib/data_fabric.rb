@@ -169,18 +169,6 @@ module DataFabric
     ensure
       set_role('slave')
     end
-
-    private
-    
-    def connection_name_builder
-      clauses = []
-      clauses << @prefix if @prefix
-      clauses << @shard_group if @shard_group
-      clauses << StringProxy.new { DataFabric.active_shard(@shard_group) } if @shard_group
-      clauses << RAILS_ENV
-      clauses << StringProxy.new { @current_role } if @replicated
-      clauses
-    end
     
     def raw_connection
       conn_name = connection_name
@@ -206,8 +194,18 @@ module DataFabric
       end
       @cached_connection
     end
+
+    private
     
-    public :raw_connection
+    def connection_name_builder
+      clauses = []
+      clauses << @prefix if @prefix
+      clauses << @shard_group if @shard_group
+      clauses << StringProxy.new { DataFabric.active_shard(@shard_group) } if @shard_group
+      clauses << RAILS_ENV
+      clauses << StringProxy.new { @current_role } if @replicated
+      clauses
+    end
     
     def already_connected_to?(conn_name)
       conn_name == @current_connection_name and @cached_connection

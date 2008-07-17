@@ -147,7 +147,7 @@ module DataFabric
       if logger.debug?
         logger.debug("Calling #{method} on #{@cached_connection}")
       end
-      @cached_connection.send(method, *args, &block) 
+      raw_connection.send(method, *args, &block)
     end
     
     def connection_name
@@ -178,7 +178,7 @@ module DataFabric
           conn = connection_pool[conn_name]
           if !conn
             if logger.debug?
-              logger.debug "Switching from #{@current_connection_name || "(nil)"} to #{conn_name} (new connection)"
+              logger.debug "Switching from #{@current_connection_name || "(none)"} to #{conn_name} (new connection)"
             end
             config = ActiveRecord::Base.configurations[conn_name]
             raise ArgumentError, "Unknown database config: #{conn_name}, have #{ActiveRecord::Base.configurations.inspect}" unless config
@@ -186,7 +186,7 @@ module DataFabric
             conn = @model_class.connection
             connection_pool[conn_name] = conn
           elsif logger.debug?
-            logger.debug "Switching from #{@current_connection_name || "(nil)"} to #{conn_name} (existing connection)"
+            logger.debug "Switching from #{@current_connection_name || "(none)"} to #{conn_name} (existing connection)"
           end
           @current_connection_name = conn_name
           conn.verify!(-1)

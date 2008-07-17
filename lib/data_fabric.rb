@@ -176,18 +176,20 @@ module DataFabric
         @cached_connection = begin 
           connection_pool = (Thread.current[:data_fabric_connections] ||= {})
           conn = connection_pool[conn_name]
-          if logger.debug?
-            logger.debug "Switching from #{@current_connection_name} to #{conn_name}"
-          end
-          @current_connection_name = conn_name
           if !conn
+            if logger.debug?
+              logger.debug "Switching from #{@current_connection_name || "(nil)"} to #{conn_name} (new connection)"
+            end
             config = ActiveRecord::Base.configurations[conn_name]
             raise ArgumentError, "Unknown database config: #{conn_name}, have #{ActiveRecord::Base.configurations.inspect}" unless config
             @model_class.establish_connection config
             conn = @model_class.connection
-            conn.verify! 0
             connection_pool[conn_name] = conn
+          elsif logger.debug?
+            logger.debug "Switching from #{@current_connection_name || "(nil)"} to #{conn_name} (existing connection)"
           end
+          @current_connection_name = conn_name
+          conn.verify!(-1)
           conn
         end
         @model_class.active_connections[@model_class.name] = self

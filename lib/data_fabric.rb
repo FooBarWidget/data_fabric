@@ -135,6 +135,9 @@ module DataFabric
       :change_column, :change_column_default, :rename_column, :add_index, :remove_index, :initialize_schema_information,
       :dump_schema_information, :execute, :to => :master
     
+    METHODS_TO_DIRECTLY_DELEGATE = [:requires_reloading?, :columns, :indexes, :quote, :quote_table_name,
+      :quote_column_name, :quoted_table_name, :add_limit, :add_limit_offset!, :add_lock!]
+    
     def transaction(start_db_transaction = true, &block)
       with_master { raw_connection.transaction(start_db_transaction, &block) }
     end
@@ -197,16 +200,12 @@ module DataFabric
       @cached_connection
     end
     
-    def requires_reloading?
-      ActiveRecord::Base.connection.requires_reloading?
-    end
-    
-    def columns(*args)
-      ActiveRecord::Base.connection.columns(*args)
-    end
-    
-    def indexes(*args)
-      ActiveRecord::Base.connection.indexes(*args)
+    METHODS_TO_DIRECTLY_DELEGATE.each do |method|
+      eval "
+        def #{method}(*args)
+          ActiveRecord::Base.connection.#{method}(*args)
+        end
+      "
     end
 
     private

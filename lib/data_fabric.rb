@@ -196,6 +196,18 @@ module DataFabric
       end
       @cached_connection
     end
+    
+    def requires_reloading?
+      ActiveRecord::Base.connection.requires_reloading?
+    end
+    
+    def columns(*args)
+      ActiveRecord::Base.connection.columns(*args)
+    end
+    
+    def indexes(*args)
+      ActiveRecord::Base.connection.indexes(*args)
+    end
 
     private
     

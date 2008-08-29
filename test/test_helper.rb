@@ -12,6 +12,7 @@ if !defined?(ROOT_PATH) # Don't evaluate this file twice.
   gem 'activerecord', '=2.0.2'
   require 'active_record'
   require 'active_record/version'
+  require 'erb'
   ActiveRecord::Base.logger = Logger.new(STDOUT)
   ActiveRecord::Base.logger.level = Logger::WARN
   ActiveRecord::Base.allow_concurrency = false

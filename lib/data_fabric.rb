@@ -142,17 +142,19 @@ module DataFabric
       @model_class.send :include, ActiveRecordConnectionMethods if @replicated
     end
     
-    class << self
-      private
-        def delegate_directly(*methods)
-          methods.each do |method|
-            eval "
-              def #{method}(*args)
-                ActiveRecord::Base.connection.#{method}(*args)
-              end
-            "
+    def self.delegate_directly(*methods)
+      methods.each do |method|
+        eval "
+          def #{method}(*args)
+            connection_adapter = @adapter_mock || ActiveRecord::Base.connection
+            connection_adapter.#{method}(*args)
           end
-        end
+        "
+      end
+    end
+    
+    class << self
+      private :delegate_directly
     end
 
     delegate :insert, :update, :delete, :create_table, :rename_table, :drop_table, :add_column, :remove_column, 
@@ -161,6 +163,8 @@ module DataFabric
     
     delegate_directly :requires_reloading?, :columns, :indexes, :quote, :quote_table_name,
       :quote_column_name, :quoted_table_name, :add_limit, :add_limit_offset!, :add_lock!
+    
+    attr_accessor :adapter_mock
     
     def transaction(start_db_transaction = true, &block)
       with_master { raw_connection.transaction(start_db_transaction, &block) }

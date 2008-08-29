@@ -10,6 +10,7 @@ class DatabaseTest < Test::Unit::TestCase
   
   def setup
     ActiveRecord::Base.configurations = load_database_yml
+    ActiveRecord::Base.establish_connection('fiveruns_city_austin_test_master')
   end
   
   def teardown
@@ -20,18 +21,18 @@ class DatabaseTest < Test::Unit::TestCase
     DataFabric.activate_shard :city => :dallas do
       assert_equal 'fiveruns_city_dallas_test_slave', TheWholeBurrito.connection.connection_name
 
-      # Should use the slave
+      # Normal queries should use the slave
       burrito = TheWholeBurrito.find(1)
       assert_equal 'vr_dallas_slave', burrito.name
       
-      # Should use the master
+      # 'reload' should use the master...
       burrito.reload
       assert_equal 'vr_dallas_master', burrito.name
 
       # ...but immediately set it back to default to the slave
       assert_equal 'fiveruns_city_dallas_test_slave', TheWholeBurrito.connection.connection_name
       
-      # Should use the master
+      # Transactions should use the master
       TheWholeBurrito.transaction do
         burrito = TheWholeBurrito.find(1)
         assert_equal 'vr_dallas_master', burrito.name

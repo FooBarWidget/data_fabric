@@ -112,8 +112,12 @@ class ConnectionTest < Test::Unit::TestCase
 
   private
   
+  # Setups up a fake database connection for the model class 'clazz'. It does
+  # this by making sure that Model.connection.raw_connection returns an
+  # AdapterMock object instead of a real database driver object.
   def setup_configuration_for(clazz, name)
-    flexmock(clazz).should_receive(:mysql_connection).and_return(AdapterMock.new(RawConnection.new))
+    clazz.connection.adapter_mock = AdapterMock.new(RawConnection.new)
+    flexmock(clazz).should_receive(:mysql_connection).and_return(clazz.connection.adapter_mock)
     ActiveRecord::Base.configurations ||= HashWithIndifferentAccess.new
     ActiveRecord::Base.configurations[name] = HashWithIndifferentAccess.new({ :adapter => 'mysql', :database => name, :host => 'localhost'})
   end

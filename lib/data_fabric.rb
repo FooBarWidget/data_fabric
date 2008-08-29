@@ -46,6 +46,18 @@ module DataFabric
     ActiveRecord::Base.send(:include, self)
   end
   
+  mattr_writer :debugging
+  @@debugging = false
+  
+  def self.debugging?
+    if @@debugging.nil? && logger
+      logger.debug?
+    else
+      !!@@debugging
+    end
+    false
+  end
+  
   def self.clear_connection_pool!
     (Thread.current[:data_fabric_connections] ||= {}).clear
   end
@@ -160,7 +172,7 @@ module DataFabric
         raw_connection
         @role_changed = false
       end
-      if logger.debug?
+      if DataFabric.debugging?
         logger.debug("Calling #{method} on #{@cached_connection}")
       end
       raw_connection.send(method, *args, &block)
@@ -193,7 +205,7 @@ module DataFabric
           connection_pool = (Thread.current[:data_fabric_connections] ||= {})
           conn = connection_pool[conn_name]
           if !conn
-            if logger.debug?
+            if DataFabric.debugging?
               logger.debug "Switching from #{@current_connection_name || "(none)"} to #{conn_name} (new connection)"
             end
             config = ActiveRecord::Base.configurations[conn_name]
@@ -201,7 +213,7 @@ module DataFabric
             @model_class.establish_connection config
             conn = @model_class.connection
             connection_pool[conn_name] = conn
-          elsif logger.debug?
+          elsif DataFabric.debugging?
             logger.debug "Switching from #{@current_connection_name || "(none)"} to #{conn_name} (existing connection)"
           end
           @current_connection_name = conn_name

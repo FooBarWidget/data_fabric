@@ -55,7 +55,6 @@ module DataFabric
     else
       !!@@debugging
     end
-    false
   end
   
   def self.clear_connection_pool!

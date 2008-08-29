@@ -130,13 +130,26 @@ module DataFabric
 
       @model_class.send :include, ActiveRecordConnectionMethods if @replicated
     end
+    
+    class << self
+      private
+        def delegate_directly(*methods)
+          methods.each do |method|
+            eval "
+              def #{method}(*args)
+                ActiveRecord::Base.connection.#{method}(*args)
+              end
+            "
+          end
+        end
+    end
 
     delegate :insert, :update, :delete, :create_table, :rename_table, :drop_table, :add_column, :remove_column, 
       :change_column, :change_column_default, :rename_column, :add_index, :remove_index, :initialize_schema_information,
       :dump_schema_information, :execute, :to => :master
     
-    METHODS_TO_DIRECTLY_DELEGATE = [:requires_reloading?, :columns, :indexes, :quote, :quote_table_name,
-      :quote_column_name, :quoted_table_name, :add_limit, :add_limit_offset!, :add_lock!]
+    delegate_directly :requires_reloading?, :columns, :indexes, :quote, :quote_table_name,
+      :quote_column_name, :quoted_table_name, :add_limit, :add_limit_offset!, :add_lock!
     
     def transaction(start_db_transaction = true, &block)
       with_master { raw_connection.transaction(start_db_transaction, &block) }
@@ -198,14 +211,6 @@ module DataFabric
         @model_class.active_connections[@model_class.name] = self
       end
       @cached_connection
-    end
-    
-    METHODS_TO_DIRECTLY_DELEGATE.each do |method|
-      eval "
-        def #{method}(*args)
-          ActiveRecord::Base.connection.#{method}(*args)
-        end
-      "
     end
 
     private

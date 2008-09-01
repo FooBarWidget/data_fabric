@@ -162,7 +162,8 @@ module DataFabric
       :dump_schema_information, :execute, :to => :master
     
     delegate_directly :requires_reloading?, :columns, :indexes, :quote, :quote_table_name,
-      :quote_column_name, :quoted_table_name, :add_limit, :add_limit_offset!, :add_lock!
+      :quote_column_name, :quoted_table_name, :add_limit, :add_limit_offset!, :add_lock!,
+      :table_exists?
     
     attr_accessor :adapter_mock
     

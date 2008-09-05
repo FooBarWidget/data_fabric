@@ -5,7 +5,7 @@ module DataFabric
     # master-slave replication, or both.
     #
     # Allowed options:
-    # - +:shard_by+: The shard group that this model lives in. If not given
+    # - +:shard_by+: The shard group that this model lives in.
     # - +:replicated+: a Boolean which indicates whether master-slave
     #   replication is used. Default: false.
     # - +:prefix+

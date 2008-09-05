@@ -31,7 +31,8 @@ class ApplicationController < ActionController::Base
 
   def select_shard(&block)
     if @account
-      DataFabric.activate_shard(:shard => @account.shard, &block) 
+      DataFabric.activate_shard(:shard => @account.shard)
+      yield
     else
       yield
     end

@@ -2,26 +2,29 @@ require File.join(File.dirname(__FILE__), 'test_helper')
 require 'flexmock/test_unit'
 
 class PrefixModel < ActiveRecord::Base
-  connection_topology :prefix => 'prefix'
+  data_fabric :prefix => 'prefix'
 end
 
 class ShardModel < ActiveRecord::Base
-  connection_topology :shard_by => :city
+  data_fabric :shard_by => :city
 end
 
 class TheWholeEnchilada < ActiveRecord::Base
-  connection_topology :prefix => 'fiveruns', :replicated => true, :shard_by => :city
+  data_fabric :prefix => 'fiveruns', :replicated => true, :shard_by => :city
 end
 
+# A mock class which emulates AbstractAdapter. Contains the minimum code
+# required to perform a find with no results.
 class AdapterMock < ActiveRecord::ConnectionAdapters::AbstractAdapter
-  # Minimum required to perform a find with no results
-   def columns(table_name, name=nil)
+   def columns(table_name, name = nil)
      []
    end
-   def select(sql, name=nil)
+   
+   def select(sql, name = nil)
      []
    end
-   def execute(sql, name=nil)
+   
+   def execute(sql, name = nil)
      0
    end
    
@@ -34,9 +37,10 @@ class AdapterMock < ActiveRecord::ConnectionAdapters::AbstractAdapter
    end
 end
 
+# The raw database driver object for AdapterMock.
 class RawConnection
   def method_missing(name, *args)
-      puts "#{self.class.name} missing '#{name}': #{args.inspect}"
+    puts "#{self.class.name} missing '#{name}': #{args.inspect}"
   end
 end
 
@@ -45,8 +49,8 @@ class ConnectionTest < Test::Unit::TestCase
     DataFabric.clear_connection_pool!
   end
 
-  def test_should_install_into_arbase
-    assert PrefixModel.methods.include?('connection_topology')
+  def test_data_fabric_method_is_installed_into_active_record_base
+    assert PrefixModel.methods.include?('data_fabric')
   end
   
   def test_prefix_connection_name
@@ -112,13 +116,18 @@ class ConnectionTest < Test::Unit::TestCase
 
   private
   
-  # Setups up a fake database connection for the model class 'clazz'. It does
-  # this by making sure that Model.connection.raw_connection returns an
+  # Makes sure that when the database shard with the name +name+ is activated,
+  # that a fake database connection for the model class 'clazz' is activated.
+  # This is done by making sure that Model.connection.raw_connection returns an
   # AdapterMock object instead of a real database driver object.
   def setup_configuration_for(clazz, name)
+    ActiveRecord::Base.configurations ||= HashWithIndifferentAccess.new
+    ActiveRecord::Base.configurations[name] = HashWithIndifferentAccess.new({
+      :adapter => 'mysql',
+      :database => name,
+      :host => 'localhost'
+    })
     clazz.connection.adapter_mock = AdapterMock.new(RawConnection.new)
     flexmock(clazz).should_receive(:mysql_connection).and_return(clazz.connection.adapter_mock)
-    ActiveRecord::Base.configurations ||= HashWithIndifferentAccess.new
-    ActiveRecord::Base.configurations[name] = HashWithIndifferentAccess.new({ :adapter => 'mysql', :database => name, :host => 'localhost'})
   end
 end

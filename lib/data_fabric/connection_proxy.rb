@@ -1,4 +1,12 @@
 module DataFabric
+  # This class emulates ActiveRecord::ConnectionAdapters::AbstractAdapter, but
+  # adds master-slave replication and sharding logic. For models that use
+  # DataFabric, 'SomeModel.connection' will return an instance of this class.
+  #
+  # Internally, ConnectionProxy maintains a number of
+  # ActiveRecord::ConnectionAdapters::AbstractAdapter objects, and forwards
+  # SQL queries to one of those objects, based on the sharding/replication
+  # rules.
   class ConnectionProxy
     def initialize(model_class, options)
       @model_class = model_class      

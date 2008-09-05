@@ -42,18 +42,18 @@ require 'data_fabric/version'
 #   end
 # end
 module DataFabric
-  
-  def self.logger
-    ActiveRecord::Base.logger
-  end
-
-  def self.init
-    logger.info "Loading data_fabric #{DataFabric::Version::STRING} with ActiveRecord #{ActiveRecord::VERSION::STRING}"
-    ActiveRecord::Base.send(:include, self)
-  end
-  
   mattr_writer :debugging
   @@debugging = false
+  
+  # Initialize DataFabric. This method must be called before DataFabric is usable.
+  #
+  # If you're using the Rails plugin, then it's automatically called for you.
+  # Otherwise, you must call it manually.
+  def self.init
+    logger.info "Loading data_fabric #{DataFabric::Version::STRING} with " <<
+                "ActiveRecord #{ActiveRecord::VERSION::STRING}"
+    ActiveRecord::Base.send(:include, self) # see 'def self.included(model)'
+  end
   
   def self.debugging?
     if @@debugging.nil? && logger
@@ -63,10 +63,53 @@ module DataFabric
     end
   end
   
+  def self.logger
+    ActiveRecord::Base.logger
+  end
+  
   def self.clear_connection_pool!
     (Thread.current[:data_fabric_connections] ||= {}).clear
   end
   
+  # Activates a number of database shards. Subsequent ActiveRecord SQL queries
+  # for sharded models will be sent to the appropriate activated shard.
+  #
+  #   class SomeModel < ActiveRecord::Base
+  #     data_fabric :shard_by => :city
+  #   end
+  #   
+  #   DataFabric.activate_shard(:city => 'Duckburgh')
+  #   # The query will be sent to the database shard configured
+  #   # for the city 'Duckburgh'.
+  #   SomeModel.find(:all)
+  #   
+  #   DataFabric.activate_shard(:city => 'Phusion City')
+  #   # The query will now be sent to the database shard configured
+  #   # for the city 'Phusion City'.
+  #   SomeModel.find(:all)
+  #
+  # One can also nest activations by passing a block. If a block is given, then
+  # the block will be run, after which the shard activation state will be
+  # reverted back to the state before this +activate_shard+ call.
+  #
+  #   DataFabric.activate_shard(:city => 'Duckburgh') do
+  #     # Query is sent to the database shard configured for 'Duckburgh'.
+  #     SomeModel.find(:all)
+  #     
+  #     DataFabric.activate_shard(:city => 'Phusion City') do
+  #       # Query is sent to the database shard configured for 'Phusion City'.
+  #       SomeModel.find(:all)
+  #     end
+  #     
+  #     # Query is sent to the database shard configured for 'Duckburgh'.
+  #     SomeModel.find(:all)
+  #   end
+  #   
+  #   # Error: no shard acitvated!
+  #   SomeModel.find(:all)
+  #
+  # In situations where you want to cleanup the shard activation state, but
+  # can't use a block, use +deactivate_shard+.
   def self.activate_shard(shards, &block)
     if debugging?
       logger.debug("Activating shard: #{shards.inspect}")
@@ -93,19 +136,47 @@ module DataFabric
     end
   end
   
-  # For cases where you can't pass a block to activate_shards, you can
-  # clean up the thread local settings by calling this method at the
-  # end of processing
+  # Deactivates the given shards. This is useful for cases where you can't
+  # pass a block to +activate_shard+. You can clean up the shard group state
+  # by calling this method at the end of processing.
+  #
+  # +shards+ must be a Hash. This method will deactivate the shards specified
+  # by this Hash's keys. The Hash's values are ignored.
+  #
+  #   DataFabric.activate_shard(:city => 'Duckburgh')
+  #   Duck.find(:all)
+  #   DataFabric.deactivate_shard(:city => 'anything')
+  #   Duck.find(:all)  # Error: no shard activated!
+  #
+  # Note that +deactivate_shard+ doesn't play well with nested activations.
+  # +deactivate_shard+ will really *deactivate* a shard, instead of reverting
+  # the activation state to the way it was before.
+  #
+  #   DataFabric.activate_shard(:anime => 'Full Metal Alchemist') do
+  #     DataFabric.activate_shard(:anime => 'Naruto')
+  #     Anime.find(:all)
+  #     DataFabric.deactivate_shard(:anime => 'whatever')
+  #     
+  #     # Error: no shard activated!
+  #     Anime.find(:all)
+  #   end
   def self.deactivate_shard(shards)
     if debugging?
       logger.debug("Manually deactivating shard: #{shards.inspect}")
     end
     ensure_setup
-    shards.each do |key, value|
+    shards.each_pair do |key, value|
       Thread.current[:shards].delete(key.to_s)
     end
   end
   
+  # Returns the currently active value for the specified shard group.
+  # Raises ArgumentError if no shard is currently activated.
+  #
+  #   DataFabric.activate_shard(:city => 'Duckburgh') do
+  #     DataFabric.active_shard  # => 'Duckburgh'
+  #   end
+  #   DataFabric.active_shard    # => ArgumentError
   def self.active_shard(group)
     raise ArgumentError, 'No shard has been activated' unless Thread.current[:shards]
 
@@ -114,12 +185,15 @@ module DataFabric
     end
   end
   
-  def self.included(model)
-    # Wire up ActiveRecord::Base
-    model.extend BaseClassExtensions
-  end
-
+  # Ensures that the current thread-local environment satisfies DataFabric's
+  # expectations.
   def self.ensure_setup
     Thread.current[:shards] = {} unless Thread.current[:shards]
   end
+
+  private
+    def self.included(model)
+      # Wire up ActiveRecord::Base
+      model.extend BaseClassExtensions
+    end
 end

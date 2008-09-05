@@ -3,7 +3,7 @@ require 'flexmock/test_unit'
 require 'erb'
 
 class TheWholeBurrito < ActiveRecord::Base
-  connection_topology :prefix => 'fiveruns', :replicated => true, :shard_by => :city
+  data_fabric :prefix => 'fiveruns', :replicated => true, :shard_by => :city
 end
 
 class DatabaseTest < Test::Unit::TestCase
@@ -38,6 +38,20 @@ class DatabaseTest < Test::Unit::TestCase
         assert_equal 'vr_dallas_master', burrito.name
         burrito.save!
       end
+    end
+  end
+  
+  def test_database_connections_are_reused
+    DataFabric.activate_shard(:city => :dallas) do
+      TheWholeBurrito.find(:all)
+      old_database_driver = TheWholeBurrito.connection.raw_connection
+      
+      DataFabric.activate_shard(:city => :dallas) do
+        TheWholeBurrito.find(:all)
+      end
+      
+      TheWholeBurrito.find(:all)
+      assert_equal old_database_driver, TheWholeBurrito.connection.raw_connection
     end
   end
 end

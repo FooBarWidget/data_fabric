@@ -49,16 +49,12 @@ class ConnectionTest < Test::Unit::TestCase
     DataFabric.clear_connection_pool!
   end
 
-  def test_data_fabric_method_is_installed_into_active_record_base
-    assert PrefixModel.methods.include?('data_fabric')
-  end
-  
-  def test_prefix_connection_name
+  def test_prefix_is_added_to_the_connection_name
     setup_configuration_for PrefixModel, 'prefix_test'
     assert_equal 'prefix_test', PrefixModel.connection.connection_name
   end
   
-  def test_shard_connection_name
+  def test_shard_is_added_to_the_connection_name
     setup_configuration_for ShardModel, 'city_austin_test'
     # ensure unset means error
     assert_raises ArgumentError do
@@ -120,6 +116,8 @@ class ConnectionTest < Test::Unit::TestCase
   # that a fake database connection for the model class 'clazz' is activated.
   # This is done by making sure that Model.connection.raw_connection returns an
   # AdapterMock object instead of a real database driver object.
+  #
+  # Precondition: +data_fabric+ must have been called within +clazz+.
   def setup_configuration_for(clazz, name)
     ActiveRecord::Base.configurations ||= HashWithIndifferentAccess.new
     ActiveRecord::Base.configurations[name] = HashWithIndifferentAccess.new({

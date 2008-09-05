@@ -62,10 +62,15 @@ module DataFabric
   end
   
   def self.activate_shard(shards, &block)
+    if debugging?
+      logger.debug("Activating shard: #{shards.inspect}")
+    end
     ensure_setup
 
-    # Save the old shard settings to handle nested activation
-    old = Thread.current[:shards].dup
+    if block_given?
+      # Save the old shard settings to handle nested activation
+      old = Thread.current[:shards].dup
+    end
 
     shards.each_pair do |key, value|
       Thread.current[:shards][key.to_s] = value.to_s
@@ -74,6 +79,9 @@ module DataFabric
       begin
         yield
       ensure
+        if debugging?
+          logger.debug("Auto-deactivating shard: #{shards.inspect}")
+        end
         Thread.current[:shards] = old
       end
     end
@@ -83,6 +91,9 @@ module DataFabric
   # clean up the thread local settings by calling this method at the
   # end of processing
   def self.deactivate_shard(shards)
+    if debugging?
+      logger.debug("Manually deactivating shard: #{shards.inspect}")
+    end
     ensure_setup
     shards.each do |key, value|
       Thread.current[:shards].delete(key.to_s)

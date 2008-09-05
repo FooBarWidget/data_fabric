@@ -4,6 +4,7 @@ require 'test_help'
 
 ActiveRecord::Base.logger = Logger.new(STDOUT)
 ActiveRecord::Base.logger.level = Logger::DEBUG
+DataFabric.debugging = true
 
 class Test::Unit::TestCase
   # Transactional fixtures accelerate your tests by wrapping each test method

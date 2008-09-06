@@ -174,9 +174,9 @@ module DataFabric
   # Raises ArgumentError if no shard is currently activated.
   #
   #   DataFabric.activate_shard(:city => 'Duckburgh') do
-  #     DataFabric.active_shard  # => 'Duckburgh'
+  #     DataFabric.active_shard(:city)  # => 'Duckburgh'
   #   end
-  #   DataFabric.active_shard    # => ArgumentError
+  #   DataFabric.active_shard(:city)    # => ArgumentError
   def self.active_shard(group)
     raise ArgumentError, 'No shard has been activated' unless Thread.current[:shards]
 

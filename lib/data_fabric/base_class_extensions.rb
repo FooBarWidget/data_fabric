@@ -14,11 +14,11 @@ module DataFabric
     #     data_fabric :replicated
     #   end
     def data_fabric(options)
+      DataFabric.logger.info("Creating data_fabric proxy for class #{name}")
+      raise ArgumentError, "data_fabric does not support ActiveRecord's allow_concurrency = true" if allow_concurrency
+      
       proxy = DataFabric::ConnectionProxy.new(self, options)
       ActiveRecord::Base.active_connections[name] = proxy
-      
-      raise ArgumentError, "data_fabric does not support ActiveRecord's allow_concurrency = true" if allow_concurrency
-      DataFabric.logger.info("Creating data_fabric proxy for class #{name}")
     end
     
     alias :connection_topology :data_fabric # legacy

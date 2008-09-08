@@ -69,14 +69,9 @@ module DataFabric
     def disconnect!
       if @cached_connection
         # Remove connection from the pool.
-        key_to_delete = nil
-        DataFabric.connection_pool.each_pair do |key, value|
-          if value == @cached_connection
-            key_to_delete = key
-            break
-          end
+        DataFabric.connection_pool.delete_if do |key, value|
+          value == @cached_connection
         end
-        DataFabric.connection_pool.delete(key_to_delete) if key_to_delete
         
         # Perform the actual disconnect.
         @cached_connection.disconnect!
@@ -96,17 +91,32 @@ module DataFabric
     end
     
     def raw_connection
+      # Find the name of the connection specification that we're supposed to
+      # use, based on our current role and the currently activated shard.
+      # Establish connection with the association database, if necessary.
       conn_name = connection_name
       unless already_connected_to? conn_name 
         @cached_connection = begin 
+          # Reuse existing database connection from the pool, if we've connected
+          # to this database before.
           connection_pool = DataFabric.connection_pool
           conn = connection_pool[conn_name]
           if !conn
             if DataFabric.debugging?
               logger.debug "Switching from #{@current_connection_name || "(none)"} to #{conn_name} (new connection)"
             end
+            
             config = ActiveRecord::Base.configurations[conn_name]
             raise ArgumentError, "Unknown database config: #{conn_name}, have #{ActiveRecord::Base.configurations.inspect}" unless config
+            
+            # ActiveRecord::Base.establish_connection removes the existing
+            # connection and calls #disconnect! on it. We don't want that
+            # to happen, so we remove it from active_connections and restore
+            # it later.
+            if @model_class.active_connections[@model_class.name] == self
+              @model_class.active_connections.delete(@model_class.name)
+            end
+            
             @model_class.establish_connection config
             conn = @model_class.connection
             connection_pool[conn_name] = conn

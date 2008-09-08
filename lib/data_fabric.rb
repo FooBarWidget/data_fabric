@@ -68,7 +68,11 @@ module DataFabric
   end
   
   def self.clear_connection_pool!
-    (Thread.current[:data_fabric_connections] ||= {}).clear
+    connection_pool.clear
+  end
+  
+  def self.connection_pool
+    Thread.current[:data_fabric_connections] ||= {}
   end
   
   # Activates a number of database shards. Subsequent ActiveRecord SQL queries

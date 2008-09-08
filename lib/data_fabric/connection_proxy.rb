@@ -67,8 +67,21 @@ module DataFabric
     end
     
     def disconnect!
-      @cached_connection.disconnect! if @cached_connection
-      @cached_connection = nil
+      if @cached_connection
+        # Remove connection from the pool.
+        key_to_delete = nil
+        DataFabric.connection_pool.each_pair do |key, value|
+          if value == @cached_connection
+            key_to_delete = key
+            break
+          end
+        end
+        DataFabric.connection_pool.delete(key_to_delete) if key_to_delete
+        
+        # Perform the actual disconnect.
+        @cached_connection.disconnect!
+        @cached_connection = nil
+      end
     end
     
     def verify!(arg)
@@ -86,7 +99,7 @@ module DataFabric
       conn_name = connection_name
       unless already_connected_to? conn_name 
         @cached_connection = begin 
-          connection_pool = (Thread.current[:data_fabric_connections] ||= {})
+          connection_pool = DataFabric.connection_pool
           conn = connection_pool[conn_name]
           if !conn
             if DataFabric.debugging?
